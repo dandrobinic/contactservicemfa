@@ -1,9 +1,10 @@
 const db = require('../config/firebase');
 const admin = require('firebase-admin');
+const functions = require("firebase-functions");
 const axios = require('axios');
 
-const accountSid = 'AC311df42fce728e0a656bcadad00789dc';
-const authToken = 'eb299ab604c49444b7c9b341ea3d1813';
+const accountSid = functions.config().twilio.accountsid;
+const authToken = functions.config().twilio.authtoken;
 const client = require('twilio')(accountSid, authToken);
 
 function authenticate(adminApplicationId, sharedSecret) {
@@ -27,6 +28,7 @@ function createOTP(authToken,authApplicationId,userId) {
         {
             'applicationId': authApplicationId, 
             'returnOTP': true,
+            "deliverOTP": false,
             'userId': userId,
         },
         {
