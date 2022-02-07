@@ -2,7 +2,9 @@ const db = require('../config/firebase');
 const admin = require('firebase-admin');
 const functions = require("firebase-functions");
 const axios = require('axios');
+const { validationResult } = require('express-validator');
 
+// Twilio Configuration
 const accountSid = functions.config().twilio.accountsid;
 const authToken = functions.config().twilio.authtoken;
 const client = require('twilio')(accountSid, authToken);
@@ -22,13 +24,14 @@ function authenticate(adminApplicationId, sharedSecret) {
         );
 };
 
-function createOTP(authToken,authApplicationId,userId) {
+function createOTP(authToken,applicationId,userId,otpDeliveryType) {
     return axios.post(
         'https://claro.us.trustedauth.com/api/web/v1/otps', 
         {
-            'applicationId': authApplicationId, 
+            'applicationId': applicationId, 
             'returnOTP': true,
-            "deliverOTP": false,
+            "deliverOTP": otpDeliveryType == 'SMS' ? false : true,
+            "otpDeliveryType": otpDeliveryType,
             'userId': userId,
         },
         {
@@ -58,7 +61,18 @@ function getUserInfo(authToken,userId) {
 };
 
 const generateOTP = async (req, res) => {
-    const { adminApplicationId, sharedSecret, userId, authApplicationId } = req.body;
+    
+    const errors = validationResult(req);
+    
+    if (!errors.isEmpty()) {
+      const firstError = errors.array()[0].msg;
+      return res.status(400).json({
+            errorCode: 'invalid_argument_format',
+            errorMessage: firstError,                
+        });
+    }
+
+    const { adminApplicationId, sharedSecret, userId, applicationId } = req.body;
     try {
         const generateOTP = db.collection('generateOTP').doc();
         
@@ -67,7 +81,7 @@ const generateOTP = async (req, res) => {
             adminApplicationId,
             sharedSecret,
             userId,
-            authApplicationId,
+            applicationId,
             createdAt: admin.firestore.FieldValue.serverTimestamp()
         };
         
@@ -80,21 +94,18 @@ const generateOTP = async (req, res) => {
             var errorCode = error.response.data.errorCode;
             if(errorCode == 'api_application_not_found'){
                 res.status(404).send({
-                    status: 'failure',
                     errorCode: errorCode,
-                    message: 'Aplicación API administrativa no encontrada',                
+                    errorMessage: 'Aplicación API administrativa no encontrada',                
                 });
             }else if(errorCode == 'access_denied'){
-                res.status(403).send({
-                    status: 'failure',
+                res.status(403).send({                
                     errorCode: errorCode,
-                    message: 'Acceso Denegado',                
+                    errorMessage: 'Acceso Denegado',                
                 });
             }else{
-                res.status(500).send({
-                    status: 'failure',
-                    errorCode: errorCode,
-                    message: 'Internal Server Error',                
+                res.status(500).send({                    
+                    errorCode: 'internal_server_error',
+                    errorMessage: 'Internal Server Error',                
                 });
             } 
         });
@@ -105,44 +116,38 @@ const generateOTP = async (req, res) => {
             var errorCode = error.response.data.errorCode;
             if(errorCode == 'user_not_found'){
                 res.status(404).send({
-                    status: 'failure',
                     errorCode: errorCode,
-                    message: 'Usuario no encontrado',
+                    errorMessage: 'Usuario no encontrado',
                 });
             }else if(errorCode == 'invalid_session_token'){
                 res.status(500).send({
-                    status: 'failure',
-                    errorCode: '',
-                    message: 'Internal Server Error',
+                    errorCode: 'internal_server_error',
+                    errorMessage: 'Internal Server Error',
                 });
             }else{
                 res.status(500).send({
-                    status: 'failure',
-                    errorCode: errorMessage,
+                    errorCode: errorCode,
                     message: 'Internal Server Error',                
                 });
             }
         });
         
         // Generates OTP from Entrust
-        const createOTPResponse = await createOTP(authenticateResponse.data.authToken,authApplicationId,userId)
+        const createOTPResponse = await createOTP(authenticateResponse.data.authToken,applicationId,userId,"SMS")
         .catch(error => {
             var errorCode = error.response.data.errorCode;
             if(errorCode == 'application_not_found'){
                 res.status(404).send({
-                    status: 'failure',
                     errorCode: errorCode,
                     message: 'Aplicación de Autenticación no encontrada',
                 });
             }else if(errorCode == 'invalid_session_token'){
                 res.status(500).send({
-                    status: 'failure',
                     errorCode: '',
                     message: 'Internal Server Error',
                 });
             }else{
                 res.status(500).send({
-                    status: 'failure',
                     errorCode: errorMessage,
                     message: 'Internal Server Error',                
                 });
@@ -150,7 +155,7 @@ const generateOTP = async (req, res) => {
         });
 
         // Setting the name of the application that is being accessed 
-        const sistema = (authApplicationId == '40935e0c-6ab8-4fa3-8b63-616a4565bef2') ? 'Poliedro' : 'Visor'; 
+        const sistema = (applicationId == '40935e0c-6ab8-4fa3-8b63-616a4565bef2') ? 'Poliedro' : 'Visor'; 
         
         //Calling Twilio for sending the SMS with OTP to the given user
         try {
@@ -162,9 +167,9 @@ const generateOTP = async (req, res) => {
             })
             .then(() =>
                 res.status(201).send({
-                    status: 'success',
-                    message: 'OTP generado exitosamente',
+                    message: 'OTP successfully created',
                     token: createOTPResponse.data.token,
+                    expirationTime: createOTPResponse.data.exp,
                 })
             );    
         } catch (error) {
