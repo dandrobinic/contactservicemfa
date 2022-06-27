@@ -1,15 +1,15 @@
 {
-    "hosting": {
-      "rewrites": [
-        {
-          "source": "/otp/**",
-          "function": "otp"
-        },
-        {
-            "source": "!/otp/**",
-            "destination": "/index.html"  
-        }
-      ]
-    }
+  "hosting": {
+    "rewrites": [
+      {
+        "source": "/otp/**",
+        "function": "otp"
+      },
+      {
+          "source": "!/otp/**",
+          "destination": "/index.html"  
+      }
+    ]
   }
+}
   
