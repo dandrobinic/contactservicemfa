@@ -157,21 +157,47 @@ const generateOTP = async (req, res) => {
         // Setting the name of the application that is being accessed 
         const sistema = (applicationId == '40935e0c-6ab8-4fa3-8b63-616a4565bef2') ? 'Poliedro' : 'Visor'; 
         
-        //Calling Twilio for sending the SMS with OTP to the given user
+        // Sending the OTP to the final user via SMS
         try {
-            client.messages
-            .create({
-                body: 'Su codigo OTP para ingresar a ' + sistema + ' es el siguiente: ' + createOTPResponse.data.otp ,
-                from: '+17655776014',
-                to: getUserInfoResponse.data.mobile
-            })
-            .then(() =>
-                res.status(201).send({
-                    message: 'OTP successfully created',
+            
+            //Via SMPP (PCA) 
+            let phoneNumber = getUserInfoResponse.data.mobile;
+            let message = 'Su codigo OTP para ingresar a ' + sistema + ' es el siguiente: ' + createOTPResponse.data.otp;            
+
+            // Enviar request al servicio expuesto en la Maquina Virtual para envio de mensaje SMS por PCA (SMPP)        
+            axios.post('http://10.128.0.4:3030/sendSmsViaSmpp',{
+                message: message,
+                phoneNumber: phoneNumber
+            }).then((response) => {                                            
+                res.status(201).json({
+                    message: 'OTP successfully sent',
                     token: createOTPResponse.data.token,
                     expirationTime: createOTPResponse.data.exp,
+                    smppResponse: response.data
                 })
-            );    
+            }).catch(function (error) {           
+                console.log(error); 
+                res.status(403).json({
+                    status: error.message,
+                });
+            }) .then(function () {
+                // always executed
+            }); 
+
+            //Via Twilio 
+            // client.messages.create({
+            //     body: 'Su codigo OTP para ingresar a ' + sistema + ' es el siguiente: ' + createOTPResponse.data.otp ,
+            //     from: '+17655776014',
+            //     to: getUserInfoResponse.data.mobile
+            // })
+            // .then(() =>
+            //     res.status(201).send({
+            //         message: 'OTP successfully created',
+            //         token: createOTPResponse.data.token,
+            //         expirationTime: createOTPResponse.data.exp,
+            //     })
+            // );    
+
         } catch (error) {
             res.status(500).json(error.message);
         }
