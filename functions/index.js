@@ -26,8 +26,8 @@ otpEntrustApp.post('/',[
         .isIn(['40935e0c-6ab8-4fa3-8b63-616a4565bef2', '95d39451-20e0-4819-931e-a0f3c7e30043']).withMessage('Invalid applicationId')
   ],otpGenerator);
 
-// ************ Exported Cloud Functions ************ //
- 
-//Production Functions
+// ************ Exported Cloud Functions on HTTP Triggers ************ //
+
+//Production Cloud Functions
 exports.entrustclaro = functions.https.onRequest(entrustApp);
-exports.otp = functions.https.onRequest(otp);
+exports.otp = functions.https.onRequest(otpEntrustApp);
