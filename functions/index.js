@@ -1,13 +1,14 @@
 const functions = require("firebase-functions");
 const express = require("express");
 const { check, body } = require('express-validator');
-const otpGenerator = require('./controllers/otpGeneratorController');
 const getTenantInfo = require('./controllers/tenantController');
+const otpGenerator = require('./controllers/otpGeneratorController');
 
-const otp = express();
-const entrust = express();
+const entrustApp = express();
+const otpEntrustApp = express();
 
-otp.post('/',[
+entrustApp.get('/',getTenantInfo)
+otpEntrustApp.post('/',[
     check('adminApplicationId')
         .exists().withMessage('adminApplicationId is required')
         .isString().withMessage('adminApplicationId must be a string')
@@ -25,10 +26,8 @@ otp.post('/',[
         .isIn(['40935e0c-6ab8-4fa3-8b63-616a4565bef2', '95d39451-20e0-4819-931e-a0f3c7e30043']).withMessage('Invalid applicationId')
   ],otpGenerator);
 
-entrust.get('/',getTenantInfo)
-
 // ************ Exported Cloud Functions ************ //
  
 //Production Functions
+exports.entrustclaro = functions.https.onRequest(entrustApp);
 exports.otp = functions.https.onRequest(otp);
-exports.entrustclaro = functions.https.onRequest(entrust);
