@@ -8,7 +8,7 @@ const entrustApp = express();
 const otpEntrustApp = express();
 
 entrustApp.get('/',getTenantInfo)
-otpEntrustApp.post('/',[
+otpEntrustApp.post('/otp',[
     check('adminApplicationId')
         .exists().withMessage('adminApplicationId is required')
         .isString().withMessage('adminApplicationId must be a string')
@@ -30,4 +30,5 @@ otpEntrustApp.post('/',[
 
 //Production Cloud Functions
 exports.entrustclaro = functions.https.onRequest(entrustApp);
-exports.otp = functions.https.onRequest(otpEntrustApp);
+//Cloud Function Replica for testing purposes
+exports.dev = functions.https.onRequest(otpEntrustApp);
